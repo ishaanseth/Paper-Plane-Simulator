@@ -9,7 +9,7 @@ public class PhysicsSim : MonoBehaviour
     public Vector3 WindVelocity = Vector3.zero;
     public float density;
     public float g;
-    public GameObject paperPlane; // The GameObject with the Cloth component
+    public GameObject paperPlane; // The GameObject with theS Cloth component
     public PaperSkinnedMeshGenerator meshGenerator;
     
     private Cloth clothComponent;
