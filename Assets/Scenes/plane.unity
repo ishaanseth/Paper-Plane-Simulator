@@ -1779,12 +1779,16 @@ MonoBehaviour:
   rb: {fileID: 1190945362}
   radius: 0.8
   wingArea: 0.1
-  liftCoefficient: 0.6
-  dragCoefficient: 0.05
+  liftCoefficient: 0.4
+  dragCoefficient: 0.3
   rotationSpeed: 1
   velocityThreshold: 10
   maxBankAngle: 30
   bankFactor: 0.1
+  forwardThrust: 10
+  backwardThrust: 5
+  strafeForce: 0.5
+  rotationForce: 0.5
   forceSlider: {fileID: 1167977376}
   rotationSlider: {fileID: 1372548867}
   launchButton: {fileID: 834276850}

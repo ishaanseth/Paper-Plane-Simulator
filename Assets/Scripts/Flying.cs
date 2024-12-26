@@ -12,14 +12,20 @@ public class Flying : MonoBehaviour
     public Rigidbody rb;
     public float radius; // Not typically used in standard aerodynamics
     public float wingArea = 0.1f; // Total wing area in m²
-    public float liftCoefficient = 0.5f; // Example lift coefficient
-    public float dragCoefficient = 0.05f; // Example drag coefficient
+    public float liftCoefficient = 0.6f; // Example lift coefficient
+    public float dragCoefficient = 0.06f; // Example drag coefficient
 
     [Header("Rotation Properties")]
     public float rotationSpeed = 3f; // Reduced rotation speed for smoother alignment
-    public float velocityThreshold = 1f; // Increased threshold to prevent rotation at low speeds
-    public float maxBankAngle = 30f; // Maximum bank angle to prevent over-rotation
+    public float velocityThreshold = 0.5f; // Increased threshold to prevent rotation at low speeds
+    public float maxBankAngle = 60f; // Maximum bank angle to prevent over-rotation
     public float bankFactor = 0.1f; // Controls banking intensity based on lateral movement
+
+    [Header("Control Properties")]
+    public float forwardThrust = 10f; // Thrust applied when pressing W
+    public float backwardThrust = 5f; // Deceleration applied when pressing S
+    public float strafeForce = 0.5f; // Force applied for strafing with A and D
+    public float rotationForce = 0.5f; // Torque applied for A/D rotation
 
     [Header("UI Components")]
     public Slider forceSlider; // Reference to the Initial Force Slider
@@ -121,11 +127,11 @@ public class Flying : MonoBehaviour
 
         if (displacementText != null)
         {
-            displacementText.text = "Displacement: (0, 0, 0) m";
+            displacementText.text = "Position:(0, 0, 0)";
         }
         else
         {
-            Debug.LogWarning("Displacement Text not assigned in the Inspector.");
+            Debug.LogWarning("Position Text not assigned in the Inspector.");
         }
 
         // Initialize Camera Components
@@ -174,6 +180,11 @@ public class Flying : MonoBehaviour
         {
             SwitchToNextCamera();
         }
+
+        if (!isLanded)
+        {
+            HandlePlayerInput();
+        }
     }
 
     void FixedUpdate()
@@ -185,6 +196,36 @@ public class Flying : MonoBehaviour
             UpdateUITexts(); // Update UI texts each FixedUpdate
         }
         HandleTimer();
+    }
+
+    void HandlePlayerInput()
+    {
+        // Forward thrust (W key)
+        if (Input.GetKey(KeyCode.W))
+        {
+            rb.AddForce(transform.forward * forwardThrust, ForceMode.Force);
+        }
+
+        // Backward thrust (S key)
+        if (Input.GetKey(KeyCode.S))
+        {
+            rb.AddForce(-transform.forward * backwardThrust, ForceMode.Force);
+        }
+
+        // Strafing (A/D keys)
+        if (Input.GetKey(KeyCode.A))
+        {
+            rb.AddForce(-transform.right * strafeForce, ForceMode.Force);
+            rb.AddTorque(Vector3.up * -rotationForce, ForceMode.Force); // Apply slight rotation
+            rb.AddTorque(Vector3.forward * rotationForce, ForceMode.Force);
+        }
+
+        if (Input.GetKey(KeyCode.D))
+        {
+            rb.AddForce(transform.right * strafeForce, ForceMode.Force);
+            rb.AddTorque(Vector3.up * rotationForce, ForceMode.Force); // Apply slight rotation
+            rb.AddTorque(Vector3.forward * -rotationForce, ForceMode.Force);
+        }
     }
 
     // Method to switch to the next camera position
