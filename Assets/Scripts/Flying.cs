@@ -308,25 +308,26 @@ public class Flying : MonoBehaviour
         Vector3 desiredUp = Vector3.up - lateralVelocity * bankFactor;
         desiredUp = desiredUp.normalized;
 
-        // Compute the desired rotation
+        // Compute the desired rotation using LookRotation
         Quaternion desiredRotation = Quaternion.LookRotation(desiredForward, desiredUp);
 
         // Smoothly interpolate between the current rotation and the desired rotation
         Quaternion smoothedRotation = Quaternion.Slerp(rb.rotation, desiredRotation, rotationSpeed * Time.fixedDeltaTime);
 
-        // Apply the rotation using Rigidbody.MoveRotation for smooth physics-based rotation
-        rb.MoveRotation(smoothedRotation);
+        // Combine smoothing with clamping:
+        // Convert the smoothed rotation to Euler angles
+        Vector3 euler = smoothedRotation.eulerAngles;
+        // Convert euler.z to a signed angle and clamp it
+        float bankAngle = Mathf.DeltaAngle(0, euler.z);
+        bankAngle = Mathf.Clamp(bankAngle, -maxBankAngle, maxBankAngle);
+        euler.z = bankAngle;
+        // Reconstruct the final rotation with clamped bank angle
+        Quaternion finalRotation = Quaternion.Euler(euler);
 
-        // Limit the bank angle to prevent over-rotation
-        Vector3 euler = rb.rotation.eulerAngles;
+        // Apply the final rotation once
+        rb.MoveRotation(finalRotation);
 
-        // Convert euler.z from [0, 360] to [-180, 180] for clamping
-        euler.z = Mathf.Clamp(Mathf.DeltaAngle(0, euler.z), -maxBankAngle, maxBankAngle);
-
-        Quaternion clampedRotation = Quaternion.Euler(euler);
-        rb.MoveRotation(clampedRotation);
-
-        // Optional: Visualize desired forward direction
+        // Optional: Visualize the desired forward direction for debugging
         Debug.DrawRay(transform.position, desiredForward * 2f, Color.blue);
     }
 
