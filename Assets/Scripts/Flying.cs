@@ -7,6 +7,7 @@ public class Flying : MonoBehaviour
     [Header("Aerodynamic Properties")]
     public float PAtm = 101325f; // Atmospheric pressure in Pascals
     public Vector3 WindVelocity = Vector3.zero;
+    private Vector3 initialWindDirection = Vector3.zero;
     public float density = 1.225f; // Air density at sea level in kg/m³
     public float gravity = 9.81f; // Acceleration due to gravity in m/s²
     public Rigidbody rb;
@@ -14,6 +15,10 @@ public class Flying : MonoBehaviour
     public float wingArea = 0.1f; // Total wing area in m²
     public float liftCoefficient = 0.6f; // Example lift coefficient
     public float dragCoefficient = 0.06f; // Example drag coefficient
+
+     [Header("Wind Settings")]
+    [Tooltip("Slider to control wind velocity magnitude")]
+    public Slider windVelocitySlider;  // Single slider for wind speed
 
     [Header("Rotation Properties")]
     public float rotationSpeed = 3f; // Reduced rotation speed for smoother alignment
@@ -36,9 +41,6 @@ public class Flying : MonoBehaviour
     public Text velocityText; // Reference to the Velocity Text
     public Text displacementText; // Reference to the Displacement Text
 
-    [Header("Camera Components")]
-    public Transform[] cameraPositions; // Array to hold the three camera positions
-    public Transform mainCameraTransform; // Reference to the Main Camera's Transform
 
     // Variables to store selected force and rotation
     private float selectedForce = 0f;
@@ -50,7 +52,6 @@ public class Flying : MonoBehaviour
     bool hasLaunched = false; // To prevent multiple launches
     bool isLanded = false; // Flag to indicate if the plane has landed
 
-    private int currentCameraIndex = 0; // Tracks the current camera position
 
     void Start()
     {
@@ -85,8 +86,8 @@ public class Flying : MonoBehaviour
         if (rotationSlider != null)
         {
             rotationSlider.minValue = 0f;
-            rotationSlider.maxValue = 60f; // Updated max value
-            rotationSlider.value = 30f; // Default value
+            rotationSlider.maxValue = 45f; // Updated max value
+            rotationSlider.value = 0f; // Default value
             rotationSlider.onValueChanged.AddListener(OnRotationSliderChanged);
             selectedRotation = -rotationSlider.value; // Negative as per user script
         }
@@ -134,30 +135,28 @@ public class Flying : MonoBehaviour
             Debug.LogWarning("Position Text not assigned in the Inspector.");
         }
 
-        // Initialize Camera Components
-        if (cameraPositions == null || cameraPositions.Length != 3)
+        // ========== Wind Velocity Slider ==========
+        if (windVelocitySlider != null)
         {
-            Debug.LogError("Please assign exactly three camera positions in the Inspector.");
-        }
-
-        if (mainCameraTransform == null)
-        {
-            // Attempt to find the Main Camera among child objects
-            Camera cam = GetComponentInChildren<Camera>();
-            if (cam != null)
+            // Store the initial direction of wind
+            // If WindVelocity is zero, default to Vector3.forward
+            if (WindVelocity.magnitude > 0.001f)
             {
-                mainCameraTransform = cam.transform;
+                initialWindDirection = WindVelocity.normalized;
             }
             else
             {
-                Debug.LogError("Main Camera not found as a child of the plane. Please assign it in the Inspector.");
+                initialWindDirection = Vector3.right;
             }
-        }
 
-        // Set the initial camera position
-        if (cameraPositions != null && cameraPositions.Length == 3 && mainCameraTransform != null)
-        {
-            SwitchCamera(currentCameraIndex);
+            // Set the slider range
+            windVelocitySlider.minValue = -30f;
+            windVelocitySlider.maxValue = 30f;
+            // Start the slider at the current wind speed
+            windVelocitySlider.value = WindVelocity.magnitude;
+
+            // Listen for changes
+            windVelocitySlider.onValueChanged.AddListener(OnWindVelocitySliderChanged);
         }
     }
 
@@ -175,20 +174,34 @@ public class Flying : MonoBehaviour
 
     void Update()
     {
-        // Detect "C" key press to switch camera positions
-        if (Input.GetKeyDown(KeyCode.C))
-        {
-            SwitchToNextCamera();
-        }
-
         if (!isLanded)
         {
             HandlePlayerInput();
         }
+        // Grab the plane's local scale
+        Vector3 scale = transform.localScale;
+        float x = scale.x;
+        float y = scale.y;
+        float z = scale.z;
+
+        // 1) Wing Area = x² / 10
+        wingArea = (x * x) / 10f;
+
+        // 2) Drag Coefficient = (x² + y² + z²) / 10
+        dragCoefficient = (x * x + y * y + z * z) / 10f;
+
+        // 3) Lift Coefficient = (x² + y² + 4f) / 10
+        liftCoefficient = (x * x + y * y + 4f) / 10f;
+
     }
 
     void FixedUpdate()
     {
+        if (!hasLaunched && !isLanded)
+        {
+            transform.localRotation = Quaternion.Euler(selectedRotation, 0f, 0f);
+        }
+
         if (!timerStart && hasLaunched && !isLanded)
         {
             ApplyAerodynamicForces();
@@ -209,52 +222,29 @@ public class Flying : MonoBehaviour
         // Backward thrust (S key)
         if (Input.GetKey(KeyCode.S))
         {
-            rb.AddForce(-transform.forward * backwardThrust, ForceMode.Force);
+            rb.AddForce(-transform.forward * backwardThrust * 0.1f, ForceMode.Force);
         }
 
         // Strafing (A/D keys)
         if (Input.GetKey(KeyCode.A))
         {
-            rb.AddForce(-transform.right * strafeForce, ForceMode.Force);
+            
             rb.AddTorque(Vector3.up * -rotationForce, ForceMode.Force); // Apply slight rotation
             rb.AddTorque(Vector3.forward * rotationForce, ForceMode.Force);
         }
 
         if (Input.GetKey(KeyCode.D))
         {
-            rb.AddForce(transform.right * strafeForce, ForceMode.Force);
+            
             rb.AddTorque(Vector3.up * rotationForce, ForceMode.Force); // Apply slight rotation
             rb.AddTorque(Vector3.forward * -rotationForce, ForceMode.Force);
         }
     }
 
-    // Method to switch to the next camera position
-    void SwitchToNextCamera()
+    void OnWindVelocitySliderChanged(float newMagnitude)
     {
-        if (cameraPositions == null || cameraPositions.Length != 3)
-        {
-            Debug.LogWarning("Camera positions are not properly assigned.");
-            return;
-        }
-
-        currentCameraIndex = (currentCameraIndex + 1) % cameraPositions.Length;
-        SwitchCamera(currentCameraIndex);
-    }
-
-    // Method to switch the camera to a specified position
-    void SwitchCamera(int index)
-    {
-        if (mainCameraTransform == null || cameraPositions == null || cameraPositions.Length < 3)
-        {
-            Debug.LogWarning("Camera or camera positions are not properly assigned.");
-            return;
-        }
-
-        // Move the camera to the new position and rotation
-        mainCameraTransform.localPosition = cameraPositions[index].localPosition;
-        mainCameraTransform.localRotation = cameraPositions[index].localRotation;
-
-        Debug.Log($"Switched to Camera Position {index + 1}");
+        // Recompute wind velocity based on the initial direction
+        WindVelocity = initialWindDirection * newMagnitude;
     }
 
     // Method to apply lift and drag based on current velocity
@@ -417,9 +407,6 @@ public class Flying : MonoBehaviour
             displacementText.text = "Displacement: (0, 0, 0) m";
         }
 
-        // Reset Camera to the first position
-        currentCameraIndex = 0;
-        SwitchCamera(currentCameraIndex);
 
         Debug.Log("Plane has been reset.");
     }
